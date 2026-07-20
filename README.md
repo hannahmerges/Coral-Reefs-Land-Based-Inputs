@@ -4,12 +4,15 @@ Abstract: Recruitment is a critical demographic bottleneck that governs coral po
 
 Keywords: submarine groundwater discharge, settlement, coral, Moorea, Pocillopora, biogeochemistry, environmental gradient
 
-All data, scripts, and outputs directly related to the submission can be found in the respective "For Publication" folders.
+All data, scripts, and outputs directly related to the submission can be found in the respective "Data", "Scripts", and "Outputs" folders.
 
 Hannah E. Merges1*, Danielle M. Barnas2, and Nyssa J. Silbiger3 
 
 1 Department of Biology , California State University, Northridge, CA, USA 
+
 2 Hawai’i Institute of Marine Biology, University of Hawai’i at Mānoa, HI, USA
+
 3 Uehiro Center for the Advancement of Oceanography, Department of Oceanography, University of Hawai’i at Mānoa, HI, USA
+
 * Author for correspondence (merges.hannah@gmail.com, ORCID: 0009-0004-2697-6316)
 
