@@ -1,0 +1,204 @@
+---
+title: "KrigingPlot_Silicate"
+author: "HEM"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries and read in data 
+```{r}
+### Was inspired by DMB kringing plots but maptools packages is no longer available in CRAN ###
+### Updated by HEM 08/23/2025 using ggmap and ggspatial packages with API from google ####
+
+#### LOAD LIBRARIES ####
+library(here)
+library(tidyverse)
+library(patchwork)
+library(ggmap)
+library(ggspatial)
+library(viridis)
+library(ggplot2)
+library(kriging)
+library(magick)
+
+#### READ IN DATA ####
+
+# August data, not transformed or scaled
+nutrients <- read_csv(here("Data", "AugNutrient_Processed_CV.csv")) ## from DMB. -- need to have lat and long info so used previous dataset with measurements from all the sites, since I did not collect water quality data at each point during my study 
+
+```
+
+## establish basic map and plots points 
+
+```{r}
+### notes ### 
+# register_google(key = "key here", write = TRUE) ### use your own API
+# IMPORTANT don't put your key to github!! I saved mine elsewhere and import it each time
+# Setting write = TRUE will write the API key to your R environment so that you do not have to re register it each time
+
+#Also use the stadia maps API Key
+#register_stadiamaps("key here", write = TRUE)
+
+###############
+## locate moorea with coordinates
+###############
+
+# Make a data frame with lon and lat coordinates
+moorea <- data.frame(lon = -149.9005, lat = -17.53975) # coordinates for near Varari site
+# Get base layer
+moorea_map <- get_map(moorea, zoom=14, maptype = "satellite")
+# Plot it
+ggmap(moorea_map) 
+
+###############
+## separate into Varari and Cabral plots 
+###############
+nutrients_V <- nutrients %>% 
+  filter(Location=="Varari") %>% 
+  dplyr::mutate(Silicate_umolL = round(Silicate_umolL, digits = 0)) ## round the silicate values so they are integers
+
+nutrients_C <- nutrients %>% 
+  filter(Location=="Cabral") %>% 
+  dplyr::mutate(Silicate_umolL = round(Silicate_umolL, digits = 0))
+
+###############
+## Varari 
+###############
+Varari <- data.frame(lon = -149.9005, lat = -17.53975) # coordinates for near Varari site
+# Get base layer
+Varari_map <- get_map(Varari, zoom=18, maptype = "satellite")
+# Plot it
+Varari_map1 <- ggmap(Varari_map) 
+
+Varari_map1
+ggsave(here::here("Outputs", "Publication", "V_map_site.jpg"), 
+       width=12, height=8)
+
+#### plot the site/silicate points
+
+Varari_sites <- ggmap(Varari_map)+
+  geom_point(data = nutrients_V,
+             aes(x = lon, y = lat, color = round(Silicate_umolL, digits = 0)),
+             size = 6) + 
+  scale_color_gradientn(colors = c("seashell", "lightpink", "indianred", "coral4"), 
+                        trans = "log") +
+  annotation_scale(bar_cols = c("ivory2", "ivory3"),
+                    location = "bl") + # put the bar on the bottom left and make the colors gray and white
+  annotation_north_arrow(location = "tl") + # add a north arrow
+  coord_sf(crs = 4326) + # for the scale bar to work it needs to be in this coordinate system - this is a typical coordinate reference system for a GPS (WGS84)
+  labs(x = "Longitude", 
+       y = "Latitude", 
+       color = expression(Silicate~(mu*mol~L^-1))) + 
+  theme(axis.text.x=element_text(size=10), 
+        axis.text.y=element_text(size=10), 
+        axis.title.x=element_text(size=14),
+        axis.title.y=element_text(size=14)) # +
+ # guides(color = "none")
+
+Varari_sites
+
+ggsave(here::here("Outputs", "Publication", "silicate_map_V.jpg"), 
+       width=12, height=8)
+
+## add an inset to this figure
+
+varari_tile <-image_read(here("Outputs", "Publication", "varari_site_ex.jpg"))
+
+Varari_silicate <- image_read(here("Outputs", "Publication", "silicate_map_V.jpg"))
+
+Varari_tile2 <- image_scale(varari_tile, "800x600") ##figuring out how to crop the image so it is not as large
+
+composite_fig_V <- image_composite(Varari_silicate, Varari_tile2, offset = "+700+1500") #adding two images to each other and offset is used to move the picture around the frame --> first number is the width and second is height 
+composite_fig_V
+
+ggsave(here::here("Outputs", "Publication", "composite_map_V.jpg"), 
+       width=12, height=8)
+
+
+
+###############
+## Cabral 
+###############
+
+Cabral <- data.frame(lon = -149.9127, lat = -17.51705) # coordinates for near Cabral site
+# Get base layer
+Cabral_map <- get_map(Cabral, zoom=18, maptype = "satellite")
+# Plot it
+Cabral_map1 <- ggmap(Cabral_map) 
+
+Cabral_map1
+ggsave(here::here("Outputs", "Publication", "C_map_site.jpg"), 
+       width=12, height=8)
+
+#### plot the site/silicate points
+
+Cabral_sites <- ggmap(Cabral_map)+
+  geom_point(data = nutrients_C,
+             aes(x = lon, y = lat, color = round(Silicate_umolL, 0)),
+             size = 6) + 
+  scale_color_gradientn(colors = c("seashell", "lightpink", "indianred", "coral4"), 
+                        trans="log") +
+  annotation_scale(bar_cols = c("ivory2", "ivory3"),
+                    location = "bl") + # put the bar on the bottom left and make the colors gray and white
+  annotation_north_arrow(location = "tl")+ # add a north arrow
+  coord_sf(crs = 4326) + # for the scale bar to work it needs to be in this coordinate system - this is a typical coordinate reference system for a GPS (WGS84)
+  labs(x = "Longitude", 
+       y = "Latitude", 
+       color = expression(Silicate~(mu*mol~L^-1))) + 
+  theme(axis.text.x=element_text(size=10), 
+        axis.text.y=element_text(size=10), 
+        axis.title.x=element_text(size=14),
+        axis.title.y=element_text(size=14)) 
+
+Cabral_sites
+ggsave(here::here("Outputs", "Publication", "silicate_map_C.jpg"), 
+       width=12, height=8)
+
+
+## add an inset to this figure
+
+cabral_tile <-image_read(here("Outputs", "Publication", "cabral_site_ex.png"))
+
+Cabral_silicate <- image_read(here("Outputs", "Publication", "silicate_map_C.jpg"))
+
+Cabral_tile2 <- image_scale(cabral_tile, "800x600") ##figuring out how to crop the image so it is not as large
+
+composite_fig_C <- image_composite(Cabral_silicate, Cabral_tile2, offset = "+650+1500") #adding two images to each other and offset is used to move the picture around the frame --> first number is the width and second is height 
+composite_fig_C
+
+ggsave(here::here("Outputs", "Publication", "composite_map_C.jpg"), 
+       width=12, height=8)
+
+
+
+###############
+## creating scales 
+###############
+
+max(nutrients_V$Silicate_umolL)
+min(nutrients_V$Silicate_umolL)
+
+## 24 to 127 for silicate at Varari 
+
+max(nutrients_C$Silicate_umolL)
+min(nutrients_C$Silicate_umolL)
+
+## 8 to 185 for silicate at Cabral 
+ 
+  
+
+```
+
+
+
+
+
+
+
+
+
+

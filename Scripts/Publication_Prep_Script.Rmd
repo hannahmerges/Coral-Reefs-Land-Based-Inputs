@@ -1,0 +1,539 @@
+---
+title: "Publication_Prep_Script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      warning = FALSE, 
+                      message = FALSE)
+```
+
+
+# Publication Prep Notes: 
+-  Going to focus solely on the settlement processes (experiment and in situ tiles), and pull out the post-settlement survivorship data for this story 
+-  This may open up some room to redo/re-introduce the structural equation model and look at indirect effects of SGD
+-  The potential relationships being tested are: SGD --> Settlement, Adult Pocillopora Cover --> Settlement, SGD --> Adult Pocillopora Cover
+
+
+### Load libraries 
+```{r}
+library(tidyverse)
+library(here)
+library(ggrepel)
+library(patchwork)
+library(tidytext)
+library(AICcmodavg)
+library(kableExtra)
+library(PNWColors)
+library(factoextra)
+library(devtools)
+library(ggbiplot)
+library(MASS)
+library(car)
+library(performance)
+```
+
+
+### Load Data
+```{r}
+# Poc cover data 
+
+SettlementDF_Full <- read_csv(here::here("Data", "EnvData_wPocCover.csv"))
+## FULL dataset with pocillopora cover data, env data (nuts, etc), and recruitment counts 
+## CommComp --> EnvDataPocCover 
+
+RecruitmentCounts2.1 <- read_csv((here::here("Data", "RecruitmentCounts2.1.csv")))
+
+
+
+## use this to try and get ambient SW TA and nutrients 
+#CarbonateChem <- read_csv("https://raw.githubusercontent.com/njsilbiger/MooreaSGD_site-selection/main/Data/March2022/CarbonateChemistry/pHProbe_Data_calculated_POcorrect.csv")
+
+#AllChemData <- read_csv("https://raw.githubusercontent.com/njsilbiger/MooreaSGD_site-selection/main/Data/August2021/Allbiogeochemdata_QC.csv")
+
+```
+
+
+### February, 2026: 
+-  Determine acidity diff. in pH units between both sites and ambient SW 
+```{r}
+SettlementCount_wsalinitypH <- read_csv(here::here("Data", "SettlementCounts_edited_wSALINITYpH.csv"))
+
+exp_pH_diff <- SettlementCount_wsalinitypH %>% 
+  dplyr::select(c("treatment_level", "site", "pH")) %>% 
+  group_by(site,treatment_level) %>% 
+  dplyr::summarize(avg_pH = mean(pH, na.rm=TRUE))
+
+View(exp_pH_diff)
+
+## cabral - varari for 
+
+#### ambient: 
+7.977-7.936 ## 0.041
+
+#### low: 
+7.966-7.949 ## 0.017
+
+#### med: 
+7.948-7.935 ## 0.013
+
+#### high: 
+7.927 - 7.920 ## 0.007
+
+
+
+```
+
+
+
+### December 2025: 
+-  Check if silicate and percent cover are correlated at Varari --> Result = silicate and percent cover are NONLINEARLY correlated at Varari only 
+-  For both silicate vs percent cover and silicate vs settlement use "silicate_avg", which are raw values 
+-  **NOTE:** silicate_avg values were originally calculated from "AllChemData <- read_csv("https://raw.githubusercontent.com/NJS/MooreaSGD_site-selection/main/Data/August2021/Allbiogeochemdata_QC.csv")" in the "RecruitmentTiles_PrelimAnalysis.Rmd" script. Raw silicate values were averaged across tides/days from August 2021. 
+-  **NOTE:** Percent cover data was collected from DMB' community surveys --> calculations are shown in "Poc_Cover_Data" script, uses P acuta counts / total counts of biotic organisms per each CowTagID location. Here, values are logged for normalcy of the data
+
+-  Confirming correlation between percent cover and silicate: 
+```{r}
+
+##### Confirming correlation between percent cover and silicate #####
+
+## visual test: 
+
+cover_silicate_corrplot <- SettlementDF_Full %>% 
+  dplyr::filter(Location=="Varari") %>% 
+  ggplot(aes(x = silicate_avg, 
+             y = log(percent_cover+1))) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = FALSE)
+
+cover_silicate_corrplot
+
+
+full_varari <- SettlementDF_Full %>% 
+  dplyr::filter(Location=="Varari") %>% 
+  dplyr::mutate(log_cover = log(percent_cover + 1))
+
+## stats test: 
+cor(full_varari$silicate_avg, full_varari$log_cover, use = "complete.obs", method = "pearson")
+
+cor.test(full_varari$silicate_avg, full_varari$percent_cover, method = "pearson")
+
+## nonlinear test: 
+nonlinear_test <- lm(log_cover ~ poly(silicate_avg, 2), data = full_varari)
+summary(nonlinear_test)
+
+
+```
+
+-  Why is percent cover only 4%? 
+```{r}
+#### this because of logging values ####
+
+SettlementDF_Full_test <- SettlementDF_Full %>% 
+  dplyr::mutate(log_percentcover = log(percent_cover+1))
+
+#### confirm values of total percent cover + mean/SE at each site ####
+
+SettlementDF_Full_V<- SettlementDF_Full %>% 
+  dplyr::filter(Location == "Varari")
+
+SettlementDF_Full_C<- SettlementDF_Full %>% 
+  dplyr::filter(Location == "Cabral")
+
+
+### Varari 
+min(SettlementDF_Full_V$percent_cover)
+max(SettlementDF_Full_V$percent_cover)
+mean(SettlementDF_Full_V$percent_cover)
+sd(SettlementDF_Full_V$percent_cover) / sqrt(length(SettlementDF_Full_V$percent_cover))
+
+
+
+### Cabral 
+min(SettlementDF_Full_C$percent_cover)
+max(SettlementDF_Full_C$percent_cover)
+mean(SettlementDF_Full_C$percent_cover)
+sd(SettlementDF_Full_C$percent_cover) / sqrt(length(SettlementDF_Full_C$percent_cover))
+
+```
+
+
+-  Check total number of settlers on plates
+
+```{r}
+
+### Varari 
+min(SettlementDF_Full_V$sum_total)
+max(SettlementDF_Full_V$sum_total)
+mean(SettlementDF_Full_V$sum_total)
+sd(SettlementDF_Full_V$sum_total) / sqrt(length(SettlementDF_Full_V$sum_total))
+
+
+
+### Cabral 
+min(SettlementDF_Full_C$sum_total)
+max(SettlementDF_Full_C$sum_total)
+mean(SettlementDF_Full_C$sum_total)
+sd(SettlementDF_Full_C$sum_total) / sqrt(length(SettlementDF_Full_C$sum_total))
+
+
+```
+
+
+-  Making new figure for publication that includes 6-subplots: Varari on top (relationship), Cabral on bottom (no relationships) with 1) silicate vs adults, 2) silicate vs settlers, 3) adults vs settlers 
+
+```{r}
+##### Varari plots #####
+
+##### settlers vs adults 
+adultcover_settlers_V <- ggplot() + 
+  geom_point(data = SettlementDF_Full %>% dplyr::filter(Location=="Varari"), 
+             aes(x = log(percent_cover+1), 
+                 y = sum_total), 
+             size = 4, 
+             color = "firebrick4") +
+  geom_smooth(data = SettlementDF_Full %>% dplyr::filter(Location=="Varari"), 
+             aes(x = log(percent_cover+1), 
+                 y = sum_total), 
+             method = "lm", color="black", alpha=0.5) + 
+  theme_classic() + 
+  labs(x = "Log(% Cover of Adults)", 
+       y= "Total Settlers") + 
+  theme(axis.text.x=element_text(size=30), 
+        axis.text.y=element_text(size=30), 
+        axis.title.x=element_text(size=40), 
+        axis.title.y=element_text(size=40), 
+        strip.text=element_text(size=30))
+
+adultcover_settlers_V
+ggsave(here::here("Outputs", "Publication", "settlers_adults_V.jpg"), 
+       width=11, height=9)
+
+##### silicate vs adults
+
+adultcover_silicate_V <- ggplot() + 
+  geom_point(data = SettlementDF_Full %>% dplyr::filter(Location=="Varari"), 
+             aes(x = silicate_avg, 
+                 y = log(percent_cover+1)), 
+             size = 4, 
+             color = "firebrick4") +
+  geom_smooth(data = SettlementDF_Full %>% dplyr::filter(Location=="Varari"), 
+             aes(x = silicate_avg, 
+                 y = log(percent_cover+1)), 
+             method = "lm", formula = "y~poly(x,2)", color="black", alpha=0.5) + 
+  theme_classic() + 
+  labs(x = expression(Average~Silicate~(mu*mol~L^-1)), 
+       y="Log(% Cover of Adults)") + 
+  theme(axis.text.x=element_text(size=30), 
+        axis.text.y=element_text(size=30), 
+        axis.title.x=element_text(size=40), 
+        axis.title.y=element_text(size=40), 
+        strip.text=element_text(size=30))
+
+adultcover_silicate_V
+ggsave(here::here("Outputs", "Publication", "silicate_adults_V.jpg"), 
+       width=11, height=9)
+
+##### silicate vs settlers 
+silicate_settlers_V <- ggplot() + 
+  geom_point(data = SettlementDF_Full %>% filter(Location=="Varari"),
+             aes(x=silicate_avg, 
+                 y=sum_total), 
+             size=4, 
+             color="firebrick4") +
+  geom_smooth(data = SettlementDF_Full %>% filter(Location=="Varari"), 
+             aes(x=silicate_avg, 
+                  y=sum_total), 
+             method = "glm.nb", formula = "y~poly(x,2)", color="black", alpha=0.5) + 
+  theme_classic() + 
+  labs(x = expression(Average~Silicate~(mu*mol~L^-1)), 
+       y="Total Settlers") + 
+ theme(axis.text.x=element_text(size=30), 
+        axis.text.y=element_text(size=30), 
+        axis.title.x=element_text(size=40), 
+        axis.title.y=element_text(size=40), 
+        strip.text=element_text(size=30))
+
+silicate_settlers_V
+ggsave(here::here("Outputs", "Publication", "silicate_settlers_V.jpg"), 
+       width=11, height=9)
+
+
+##### Cabral plots #####
+
+##### settlers vs adults 
+
+adultcover_settlers_C <- ggplot() + 
+  geom_point(data = SettlementDF_Full %>% dplyr::filter(Location=="Cabral"), 
+             aes(x = log(percent_cover+1), 
+                 y = sum_total), 
+             size = 4, 
+             color = "goldenrod") +
+  geom_smooth(data = SettlementDF_Full %>% dplyr::filter(Location=="Cabral"), 
+             aes(x = log(percent_cover+1), 
+                 y = sum_total), 
+             method = "lm", color="black", alpha=0.5) + 
+  theme_classic() + 
+  labs(x = "Log(% Cover of Adults)", 
+       y="Total Settlers") + 
+    theme(axis.text.x=element_text(size=30), 
+        axis.text.y=element_text(size=30), 
+        axis.title.x=element_text(size=40), 
+        axis.title.y=element_text(size=40), 
+        strip.text=element_text(size=30))
+
+adultcover_settlers_C
+ggsave(here::here("Outputs", "Publication", "settlers_adults_V.jpg"), 
+       width=11, height=9)
+
+#### silicate vs adults 
+
+adultcover_silicate_C <- ggplot() + 
+  geom_point(data = SettlementDF_Full %>% dplyr::filter(Location=="Cabral"), 
+             aes(x = silicate_avg, 
+                 y = log(percent_cover+1)), 
+             size = 4, 
+             color = "goldenrod") +
+ # geom_smooth(data = SettlementDF_Full %>% dplyr::filter(Location=="Cabral"), 
+          #   aes(x = silicate_avg, 
+             #    y = log(percent_cover+1)), 
+            # method = "lm", formula = "y ~ poly(x,2)", color="black", alpha=0.5) + 
+  theme_classic() + 
+  labs(x = expression(Average~Silicate~(mu*mol~L^-1)), 
+       y="Log(% Cover of Adults)") + 
+    theme(axis.text.x=element_text(size=30), 
+        axis.text.y=element_text(size=30), 
+        axis.title.x=element_text(size=40), 
+        axis.title.y=element_text(size=40), 
+        strip.text=element_text(size=30))
+
+adultcover_silicate_C
+ggsave(here::here("Outputs", "Publication", "silicate_adults_C.jpg"), 
+       width=11, height=9)
+
+#### silicate vs settlers
+silicate_settlers_C <- ggplot() + 
+  geom_point(data = SettlementDF_Full %>% filter(Location=="Cabral"),
+             aes(x=silicate_avg, 
+                 y=sum_total), 
+             size=4, 
+             color="goldenrod") +
+  theme_classic() + 
+  labs(x = expression(Average~Silicate~(mu*mol~L^-1)), 
+       y="Total Settlers") + 
+    theme(axis.text.x=element_text(size=30), 
+        axis.text.y=element_text(size=30), 
+        axis.title.x=element_text(size=40), 
+        axis.title.y=element_text(size=40), 
+        strip.text=element_text(size=30))
+
+silicate_settlers_C
+ggsave(here::here("Outputs", "Publication", "silicate_settlers_C.jpg"), 
+       width=11, height=9)
+
+```
+
+-  patch them all together in one figure 
+
+```{r}
+
+##### patch plots together #####
+
+full_plot <- (adultcover_silicate_V + adultcover_settlers_V  + silicate_settlers_V) / (adultcover_silicate_C + adultcover_settlers_C + silicate_settlers_C)
+
+full_plot
+ggsave(here::here("Outputs", "Publication", "full_plot.jpg"), 
+       width=24, height=18)
+```
+
+
+#### run statistical tests for each part of in situ experiments 
+-  analyzing site separately to keep with controlled lab experiment + because no pattern with Cabral but yes for Varari
+
+```{r}
+
+###### Varari models #####
+
+# percent cover x settlers 
+PocCover_Settlers_V <- glm.nb(sum_total+1 ~ log(percent_cover+1), data=SettlementDF_Full %>% 
+                                  dplyr::filter(Location=="Varari"))
+
+
+anova(PocCover_Settlers_V) ## p = 0.031
+summary(PocCover_Settlers_V)
+check_model(PocCover_Settlers_V)
+
+# settlers x silicate 
+Settlers_SGD_V <- glm.nb(sum_total+1 ~ ((silicate_avg) + I(silicate_avg^2)), data=SettlementDF_Full %>% 
+                                  dplyr::filter(Location=="Varari"))
+
+
+anova(Settlers_SGD_V) ## p = 0.006 for non-linear, lots of collinearity 
+summary(Settlers_SGD_V)
+check_model(Settlers_SGD_V) # a little bit wonky in dispersion and zero-inflation + homogeniety of variance 
+
+# percent cover x silicate  
+## updated on Feb 23rd, 2026 -- changed from glm.nb() to lm() b/c percent cover is not discrete 
+PocCover_SGD_V_lm <- lm(log(percent_cover+1) ~ ((silicate_avg) + I(silicate_avg^2)), data=SettlementDF_Full %>% 
+                                  dplyr::filter(Location=="Varari"))
+
+anova(PocCover_SGD_V) ## p = 0.029 for non-linear -- this one was WITH glm 
+anova(PocCover_SGD_V_lm) ## p = 0.044 for non-linear
+check_model(PocCover_SGD_V_lm)
+
+summary(PocCover_SGD_V)
+check_model(PocCover_SGD_V) # little bit wonky in dispersion and zero-inflation + homogeniety of variance 
+
+
+###### Cabral models #####
+
+# percent cover x settlers 
+PocCover_Settlers_C <- glm.nb(sum_total+1 ~ log(percent_cover+1), data=SettlementDF_Full %>% 
+                                  dplyr::filter(Location=="Cabral"))
+
+
+anova(PocCover_Settlers_C) ## p = 0.042
+summary(PocCover_Settlers_C)
+check_model(PocCover_Settlers_C) # little bit wonky in dispersion and zero-inflation
+
+# percent cover x silicate  
+## updated on Feb 23rd, 2026 -- changed from glm.nb() to lm() b/c percent cover is not discrete 
+PocCover_SGD_C_lm <- lm(log(percent_cover+1) ~ ((silicate_avg) + I(silicate_avg^2)), data=SettlementDF_Full %>% 
+                                  dplyr::filter(Location=="Cabral"))
+
+
+anova(PocCover_SGD_C) ## NOT SIGNIFICANT -- this one was WITH glm 
+anova(PocCover_SGD_C_lm) ## STILL NOT SIGNIFICANT 
+check_model(PocCover_SGD_V_lm)
+
+summary(PocCover_SGD_C)
+check_model(PocCover_SGD_C) # a bit wonky in dispersion and zero-inflation + homogeniety of variance 
+
+# settlers x silicate 
+SGD_Settlers_C <- glm.nb(sum_total+1 ~ ((silicate_avg) + I(silicate_avg^2)), data=SettlementDF_Full %>% 
+                                  dplyr::filter(Location=="Cabral"))
+
+anova(SGD_Settlers_C) ## NOT SIGNIFICANT
+check_model(SGD_Settlers_C)
+
+```
+
+
+
+
+
+### July 18th, 2025: Re-testing Pocillopora Cover with SGD relationship 
+```{r}
+## plot scatterplot to see general relationship between SGD and coral cover 
+SGD_Cover_Relationship <- SettlementDF_Full %>% 
+  ggplot(aes(x=silicate_avg, 
+             y=log(percent_cover+1), 
+             color=Location)) + 
+  geom_point(size=3) + 
+  theme_bw()
+
+SGD_Cover_Relationship
+
+## model the relationship to test significance 
+## only for Varari 
+
+model2 <- lm(log(percent_cover+1) ~ (silicate_avg) + I(silicate_avg^2), data = SettlementDF_Full %>% 
+               filter(Location == "Varari"))
+
+anova(model2)
+
+## add site interaction to see how it affects power 
+model3 <- lm(log(percent_cover+1) ~ (silicate_avg) + I(silicate_avg^2)*Location, data = SettlementDF_Full)
+
+anova(model3)
+```
+
+## re-testing average settlement counts per site
+
+```{r}
+## create new dfs to look at means across both sites more easily 
+C_tiles <- RecruitmentCounts2.1 %>% 
+  filter(Location=="Cabral")
+
+V_tiles <- RecruitmentCounts2.1 %>% 
+  filter(Location=="Varari")
+
+
+# range of settlement counts 
+min(C_tiles$sum_total) #0
+max(C_tiles$sum_total) #146 
+
+min(V_tiles$sum_total) #2
+max(V_tiles$sum_total) #131
+
+# mean and se of settlement counts per site 
+
+## Cabral 
+mean(C_tiles$sum_total) #21.65
+sd_C <- sd(C_tiles$sum_total, na.rm=TRUE)
+se_C <- sd_C/sqrt(20) ##7.87
+
+## Varari 
+mean(V_tiles$sum_total) ##33.8
+sd_V <- sd(V_tiles$sum_total, na.rm=TRUE)
+se_V <- sd_V/sqrt(20) ##8.21
+
+# mean settlement counts per tile 
+
+```
+
+
+#### Sept 13th, 2025: Getting average N and TA values for reef crests 
+
+```{r}
+
+MooreaMarch_full <- read_csv("https://raw.githubusercontent.com/njsilbiger/MooreaSGD_site-selection/main/Data/March2022/Allbiogeochemdata_QC_march_fdom2.csv")
+MooreaAugust2 <- read_csv("https://raw.githubusercontent.com/njsilbiger/MooreaSGD_site-selection/main/Data/August2021/Allbiogeochemdata_QC2.csv")
+
+
+MooreaAugust2_edit <- MooreaAugust2 %>% 
+  select(-c(,2:7,10:14,16,24:30))
+MooreaMarch_edit <- MooreaMarch_full %>% 
+  select(-c(,2:7,10:14,16,24:30))
+
+MooreaAugust_addedOffshore <- MooreaMarch_edit %>%  
+  full_join(MooreaAugust2_edit)
+
+
+
+nut_dfedit <- MooreaAugust_addedOffshore %>% 
+  dplyr::filter(Plate_Seep == "Offshore") %>% 
+  dplyr::select(c(1,3,5,6,10)) %>% 
+  dplyr::filter(Date != "3/26/2022"&Date != "3/27/2022"&Date != "3/28/2022")
+
+#####
+V_nuts <- nut_dfedit %>% 
+  dplyr::filter(Location=="Varari") %>% 
+  dplyr::summarize(avgTA=mean(TA), 
+                   sdTA = sd(TA),
+                   seTA = sdTA / sqrt(length(TA)),
+                   avgN=mean(NN_umolL, na.rm=TRUE),
+                   sdN = sd(NN_umolL, na.rm=TRUE), 
+                   seN = sdN/sqrt(length(NN_umolL)))
+
+C_nuts <- nut_dfedit %>% 
+  dplyr::filter(Location=="Cabral") %>% 
+  dplyr::summarize(avgTA=mean(TA), 
+                   sdTA = sd(TA),
+                   seTA = sdTA / sqrt(length(TA)),
+                   avgN=mean(NN_umolL, na.rm=TRUE),
+                   sdN = sd(NN_umolL, na.rm=TRUE), 
+                   seN = sdN/sqrt(length(NN_umolL)))
+```
+
+
+
+
+
+
+
+
+
+
+
