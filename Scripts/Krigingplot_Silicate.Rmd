@@ -110,7 +110,7 @@ varari_tile <-image_read(here("Outputs", "Publication", "varari_site_ex.jpg"))
 
 Varari_silicate <- image_read(here("Outputs", "Publication", "silicate_map_V.jpg"))
 
-Varari_tile2 <- image_scale(varari_tile, "800x600") ##figuring out how to crop the image so it is not as large
+Varari_tile2 <- image_scale(varari_tile, "800x600") ##crop the image so it is not as large
 
 composite_fig_V <- image_composite(Varari_silicate, Varari_tile2, offset = "+700+1500") #adding two images to each other and offset is used to move the picture around the frame --> first number is the width and second is height 
 composite_fig_V
@@ -165,7 +165,7 @@ cabral_tile <-image_read(here("Outputs", "Publication", "cabral_site_ex.png"))
 
 Cabral_silicate <- image_read(here("Outputs", "Publication", "silicate_map_C.jpg"))
 
-Cabral_tile2 <- image_scale(cabral_tile, "800x600") ##figuring out how to crop the image so it is not as large
+Cabral_tile2 <- image_scale(cabral_tile, "800x600") ## crop the image so it is not as large
 
 composite_fig_C <- image_composite(Cabral_silicate, Cabral_tile2, offset = "+650+1500") #adding two images to each other and offset is used to move the picture around the frame --> first number is the width and second is height 
 composite_fig_C

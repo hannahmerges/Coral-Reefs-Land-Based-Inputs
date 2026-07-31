@@ -11,9 +11,8 @@ knitr::opts_chunk$set(echo = TRUE,
 
 
 # Publication Prep Notes: 
--  Going to focus solely on the settlement processes (experiment and in situ tiles), and pull out the post-settlement survivorship data for this story 
--  This may open up some room to redo/re-introduce the structural equation model and look at indirect effects of SGD
--  The potential relationships being tested are: SGD --> Settlement, Adult Pocillopora Cover --> Settlement, SGD --> Adult Pocillopora Cover
+-  The relationships being tested here are: SGD --> Settlement, Adult Pocillopora Cover --> Settlement, SGD --> Adult Pocillopora Cover
+- Script for figures 2, 4, and supplemental 
 
 
 ### Load libraries 
@@ -37,20 +36,17 @@ library(performance)
 
 ### Load Data
 ```{r}
-# Poc cover data 
-
 SettlementDF_Full <- read_csv(here::here("Data", "EnvData_wPocCover.csv"))
-## FULL dataset with pocillopora cover data, env data (nuts, etc), and recruitment counts 
+## full dataset with pocillopora cover data, env data (nuts, etc), and recruitment counts 
 ## CommComp --> EnvDataPocCover 
 
 RecruitmentCounts2.1 <- read_csv((here::here("Data", "RecruitmentCounts2.1.csv")))
 
+CoralGenera_Tiles <- read_csv((here::here("Data", "Recruitment_Tiles_Counts.csv")))
 
+SettlementCount_wsalinitypH <- read_csv(here::here("Data", "SettlementCounts_edited_wSALINITYpH.csv"))
 
-## use this to try and get ambient SW TA and nutrients 
-#CarbonateChem <- read_csv("https://raw.githubusercontent.com/njsilbiger/MooreaSGD_site-selection/main/Data/March2022/CarbonateChemistry/pHProbe_Data_calculated_POcorrect.csv")
-
-#AllChemData <- read_csv("https://raw.githubusercontent.com/njsilbiger/MooreaSGD_site-selection/main/Data/August2021/Allbiogeochemdata_QC.csv")
+WaterChem_withpH <- read_csv(here::here("Data", "pHSlope.csv"))
 
 ```
 
@@ -58,8 +54,6 @@ RecruitmentCounts2.1 <- read_csv((here::here("Data", "RecruitmentCounts2.1.csv")
 ### February, 2026: 
 -  Determine acidity diff. in pH units between both sites and ambient SW 
 ```{r}
-SettlementCount_wsalinitypH <- read_csv(here::here("Data", "SettlementCounts_edited_wSALINITYpH.csv"))
-
 exp_pH_diff <- SettlementCount_wsalinitypH %>% 
   dplyr::select(c("treatment_level", "site", "pH")) %>% 
   group_by(site,treatment_level) %>% 
@@ -67,7 +61,7 @@ exp_pH_diff <- SettlementCount_wsalinitypH %>%
 
 View(exp_pH_diff)
 
-## cabral - varari for 
+## cabral - varari for:
 
 #### ambient: 
 7.977-7.936 ## 0.041
@@ -80,22 +74,16 @@ View(exp_pH_diff)
 
 #### high: 
 7.927 - 7.920 ## 0.007
-
-
-
 ```
 
-
-
-### December 2025: 
--  Check if silicate and percent cover are correlated at Varari --> Result = silicate and percent cover are NONLINEARLY correlated at Varari only 
--  For both silicate vs percent cover and silicate vs settlement use "silicate_avg", which are raw values 
+### Notes about script:
+-  Checked if silicate and percent cover are correlated at Varari --> Result = silicate and percent cover are NONLINEARLY correlated at Varari only 
+-  For both silicate vs percent cover and silicate vs settlement used "silicate_avg", which are raw values
 -  **NOTE:** silicate_avg values were originally calculated from "AllChemData <- read_csv("https://raw.githubusercontent.com/NJS/MooreaSGD_site-selection/main/Data/August2021/Allbiogeochemdata_QC.csv")" in the "RecruitmentTiles_PrelimAnalysis.Rmd" script. Raw silicate values were averaged across tides/days from August 2021. 
 -  **NOTE:** Percent cover data was collected from DMB' community surveys --> calculations are shown in "Poc_Cover_Data" script, uses P acuta counts / total counts of biotic organisms per each CowTagID location. Here, values are logged for normalcy of the data
 
 -  Confirming correlation between percent cover and silicate: 
 ```{r}
-
 ##### Confirming correlation between percent cover and silicate #####
 
 ## visual test: 
@@ -181,7 +169,7 @@ sd(SettlementDF_Full_C$sum_total) / sqrt(length(SettlementDF_Full_C$sum_total))
 ```
 
 
--  Making new figure for publication that includes 6-subplots: Varari on top (relationship), Cabral on bottom (no relationships) with 1) silicate vs adults, 2) silicate vs settlers, 3) adults vs settlers 
+-  Making new figure (figure 4) for publication that includes 6-subplots: Varari on top (relationship), Cabral on bottom (no relationships) with 1) silicate vs adults, 2) silicate vs settlers, 3) adults vs settlers 
 
 ```{r}
 ##### Varari plots #####
@@ -419,11 +407,7 @@ check_model(SGD_Settlers_C)
 
 ```
 
-
-
-
-
-### July 18th, 2025: Re-testing Pocillopora Cover with SGD relationship 
+### July 2025: Re-testing Pocillopora Cover with SGD relationship 
 ```{r}
 ## plot scatterplot to see general relationship between SGD and coral cover 
 SGD_Cover_Relationship <- SettlementDF_Full %>% 
@@ -484,7 +468,7 @@ se_V <- sd_V/sqrt(20) ##8.21
 ```
 
 
-#### Sept 13th, 2025: Getting average N and TA values for reef crests 
+#### Sept 2025: Getting average N and TA values for reef crests 
 
 ```{r}
 
@@ -499,8 +483,6 @@ MooreaMarch_edit <- MooreaMarch_full %>%
 
 MooreaAugust_addedOffshore <- MooreaMarch_edit %>%  
   full_join(MooreaAugust2_edit)
-
-
 
 nut_dfedit <- MooreaAugust_addedOffshore %>% 
   dplyr::filter(Plate_Seep == "Offshore") %>% 
@@ -527,9 +509,553 @@ C_nuts <- nut_dfedit %>%
                    seN = sdN/sqrt(length(NN_umolL)))
 ```
 
+## Figure 2: ggridges 
+
+```{r}
+## re-arrange data for better format 
+
+SettlementCount_salinitypH_pivot <- SettlementCount_wsalinitypH %>% 
+  dplyr::select(!c("swimming":"spawning_day", "notes")) %>% 
+  pivot_longer(cols = silicate:NN|salinity:pH, names_to= "parameters", values_to = "values")
+
+# ggridges plot 
+
+ggridges_plot <- SettlementCount_salinitypH_pivot %>% 
+  mutate(parameters = factor(parameters, levels = c("silicate", "NN", "salinity", "pH"))) %>% 
+  ggplot(aes(x = values, 
+             y = treatment_level, 
+             fill = site)) +
+  geom_density_ridges(alpha=0.7, scale = 3, rel_min_height = 0.01) +
+  scale_fill_manual(values=c("darkgoldenrod2", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_ipsum() +
+  facet_wrap(~parameters, scales="free_x") +
+  scale_y_discrete(limits=c("High", "Medium", "Low", "Ambient")) +
+    theme(axis.text.x=element_text(size=16), 
+        axis.text.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20), 
+        panel.spacing = unit(0.1, "lines"),
+        strip.text.x = element_text(size = 20)) + 
+  labs(x = "", 
+       y = "") 
+
+ggridges_plot
+
+##################
+## silicate
+##################
+ggridges_plot_silicate <- SettlementCount_wsalinitypH %>% 
+ # mutate(parameters = factor(parameters, levels = c("silicate", "NN", "salinity", "pH"))) %>% 
+  ggplot(aes(x = silicate, 
+             y = treatment_level, 
+             fill = site)) +
+  geom_density_ridges(alpha=0.7, scale = 3, rel_min_height = 0.01) +
+  scale_fill_manual(values=c("darkgoldenrod2", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_ipsum() +
+ # facet_wrap(~parameters, scales="free_x") +
+  scale_y_discrete(limits=c("High", "Medium", "Low", "Ambient")) +
+    theme(axis.text.x=element_text(size=16), 
+        axis.text.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20), 
+        panel.spacing = unit(0.1, "lines"),
+        strip.text.x = element_text(size = 20)) + 
+  labs(x = "", 
+       y = "") 
+
+ggridges_plot_silicate
+
+##################
+## nitrates
+##################
+ggridges_plot_NN <- SettlementCount_wsalinitypH %>% 
+ # mutate(parameters = factor(parameters, levels = c("silicate", "NN", "salinity", "pH"))) %>% 
+  ggplot(aes(x = NN, 
+             y = treatment_level, 
+             fill = site)) +
+  geom_density_ridges(alpha=0.7, scale = 3, rel_min_height = 0.01) +
+  scale_fill_manual(values=c("darkgoldenrod2", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_ipsum() +
+ # facet_wrap(~parameters, scales="free_x") +
+  scale_y_discrete(limits=c("High", "Medium", "Low", "Ambient")) +
+    theme(axis.text.x=element_text(size=16), 
+        axis.text.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20), 
+        panel.spacing = unit(0.1, "lines"),
+        strip.text.x = element_text(size = 20)) + 
+  labs(x = "", 
+       y = "") 
+
+ggridges_plot_NN
+
+##################
+## salinity
+##################
+ggridges_plot_salinity <- SettlementCount_wsalinitypH %>% 
+ # mutate(parameters = factor(parameters, levels = c("silicate", "NN", "salinity", "pH"))) %>% 
+  ggplot(aes(x = salinity, 
+             y = treatment_level, 
+             fill = site)) +
+  geom_density_ridges(alpha=0.7, scale = 3, rel_min_height = 0.01) +
+  scale_fill_manual(values=c("darkgoldenrod2", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_ipsum() +
+ # facet_wrap(~parameters, scales="free_x") +
+  scale_y_discrete(limits=c("High", "Medium", "Low", "Ambient")) +
+    theme(axis.text.x=element_text(size=16), 
+        axis.text.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20), 
+        panel.spacing = unit(0.1, "lines"),
+        strip.text.x = element_text(size = 20)) + 
+  labs(x = "", 
+       y = "") 
+
+ggridges_plot_salinity
+
+
+##################
+## pH
+##################
+
+ggridges_plot_pH <- SettlementCount_wsalinitypH %>% 
+ # mutate(parameters = factor(parameters, levels = c("silicate", "NN", "salinity", "pH"))) %>% 
+  ggplot(aes(x = pH, 
+             y = treatment_level, 
+             fill = site)) +
+  geom_density_ridges(alpha=0.7, scale = 3, rel_min_height = 0.01) +
+  scale_fill_manual(values=c("darkgoldenrod2", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_ipsum() +
+ # facet_wrap(~parameters, scales="free_x") +
+  scale_y_discrete(limits=c("High", "Medium", "Low", "Ambient")) +
+    theme(axis.text.x=element_text(size=16), 
+        axis.text.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20), 
+        panel.spacing = unit(0.1, "lines"),
+        strip.text.x = element_text(size = 20)) + 
+  labs(x = "", 
+       y = "") 
+
+ggridges_plot_pH
+
+
+## add together 
+ggridges_plot_silicate + ggridges_plot_NN + ggridges_plot_salinity + ggridges_plot_pH
+
+
+ggsave(here::here("Outputs", "Publication", "GGridges.jpg"),
+       width=12, height=10)
+```
+
+
+## Figure 2: endmember plots 
+
+### Create table with environmental data 
+```{r}
+###############################
+## in case someone wants to see all the raw values but kept out of publication otherwise 
+###############################
+modTable <- WaterChem_withpH %>%  
+  dplyr::select(!c("TrisCalDate":"TTris", "note", "sampling_period", "light", "experiment_number", "orion_pH", "mV", "mVTris")) %>%
+  drop_na(TA) %>% 
+  mutate(treatment_level = if_else(treatment_level == "Fresh", "Raw GW", treatment_level)) %>% 
+  rename(Phosphate = phosphate, 
+         Silicate = silicate, 
+         Ammonia = ammonia,
+         "Nitrate+Nitrite" = NN, 
+         "Total Alkalinity" = TA, 
+         "Treatment Rep" = treatmentID_rep, 
+         "SGD Level"= treatment_level, 
+         "Time of Measurement" = time, 
+         Date = date, 
+         Temperature = temp, 
+         Salinity = salinity) 
+
+modTable
+
+###############################
+## Average for treatments so table is reasonable size 
+###############################
+modTable2 <- WaterChem_withpH %>%  
+  dplyr::select(!c("TrisCalDate", "note", "sampling_period", "light", "experiment_number", "orion_pH")) %>% 
+  drop_na(TA) %>% 
+  mutate(treatment_level = if_else(treatment_level == "Fresh", "Raw GW", treatment_level)) %>% 
+  group_by(Location, treatment_level) %>% ## removed time and just included date so it is even more manageable -- took out date
+  summarize("AvgTemp" = mean(temp), 
+            "AvgPhosphate" = mean(phosphate), 
+            "AvgSilicate" = mean(silicate), 
+            "AvgNitrateNitrite" = mean(NN), 
+           # "AvgTotalAlkalinity" = mean(TA), 
+            "AvgSalinity" = mean(salinity), 
+            "AvgpH" = mean(pH)) %>% 
+  mutate(AvgSalinity = round(AvgSalinity, 2), 
+       #  AvgTotalAlkalinity = round(AvgTotalAlkalinity, 2), 
+         AvgNitrateNitrite = round(AvgNitrateNitrite, 2), 
+         AvgSilicate = round(AvgSilicate, 2), 
+         AvgPhosphate = round(AvgPhosphate, 2), 
+         AvgTemp = round(AvgTemp, 2), 
+         AvgpH = round(AvgpH, 2)) %>% 
+ # mutate(treatment_level = factor(treatment_level, levels = c("Low", "Medium", "High"))) %>%
+  rename("SGD Level"= treatment_level, 
+         #"Time of Measurement" = time, 
+        # Date = date, 
+         "Avg Temperature" = AvgTemp, 
+         "Avg Phosphate" = AvgPhosphate, 
+         "Avg Silicate" = AvgSilicate, 
+         "Avg Nitrate+Nitrite" = AvgNitrateNitrite, 
+       #  "Avg Total Alkalinity" = AvgTotalAlkalinity, 
+         "Avg Salinity" = AvgSalinity, 
+         "Avg pH" = AvgpH) 
+
+modTable2
+
+modTable2 <- modTable2 %>%
+  mutate('SGD Level' = factor('SGD Level', levels = c('Raw GW', "Ambient", "Low", "Medium", "High")))  
+
+# Create the table with the manually ordered SGD Level
+EnvData_Table <- modTable2 %>%
+  arrange('SGD Level') %>%  # Arrange by the ordered factor
+  kbl() %>%
+  kable_classic(html_font = "Times New Roman", font_size = 14) %>%
+  row_spec(0, italic = TRUE, bold = TRUE) %>%
+  pack_rows("Cabral", 1, 5) %>%
+  pack_rows("Varari", 6, 10) %>%
+  column_spec(1:6, background = "white")
+
+```
+
+### Re-design table with Kable 
+```{r}
+ 
+EnvData_Table <- modTable2 %>%
+  arrange('SGD Level') %>%  # Arrange by the ordered factor
+  kbl() %>%
+  kable_classic(html_font = "Times New Roman", font_size = 14) %>%
+  row_spec(0, italic = TRUE, bold = TRUE) %>%
+  pack_rows("Cabral", 1, 5) %>%
+  pack_rows("Varari", 6, 10) %>%
+  column_spec(1:6, background = "white")
+
+EnvData_Table
+
+######################
+## save table 
+######################
+EnvData_Table %>% 
+  as_image(file = here("Outputs", "Publication", "EnvData_Table.jpg"))
 
 
 
+```
+
+### make plots with averaged endmember groundwater data 
+```{r}
+modTable2_edit <- modTable2 %>% 
+  rename(treatment_level ="SGD Level", 
+         AvgTemp = "Avg Temperature",
+         AvgPhosphate ="Avg Phosphate" , 
+         AvgSilicate = "Avg Silicate", 
+         AvgNitrateNitrite = "Avg Nitrate+Nitrite", 
+         #AvgTotalAlkalinity = "Avg Total Alkalinity", 
+         AvgSalinity = "Avg Salinity", 
+         AvgpH = "Avg pH") %>% 
+ # dplyr::filter(treatment_level=="Raw GW"|treatment_level=="Ambient") %>% 
+  group_by(Location, treatment_level) %>% 
+  summarize(meantemp = mean(AvgTemp), 
+            meanphos = mean(AvgPhosphate), 
+            meansilicate = mean(AvgSilicate), 
+            meanNN = mean(AvgNitrateNitrite),
+         #   meanTA = mean(AvgTotalAlkalinity),
+            meanpH = mean(AvgpH), 
+            meansal = mean(AvgSalinity), 
+            setemp = sd(AvgTemp) / sqrt(n()), 
+            sephos = sd(AvgPhosphate) / sqrt(n()), 
+            sesilicate = sd(AvgSilicate) / sqrt(n()),
+            seNN = sd(AvgNitrateNitrite) / sqrt(n()), 
+         #   seTA = sd(AvgTotalAlkalinity) / sqrt(n()), 
+            sesal = sd(AvgSalinity) / sqrt(n()), 
+            sepH = sd(AvgpH) / sqrt(n())) # %>% 
+ # pivot_longer(cols = "meantemp":"meansal", names_to = "avg_params", values_to = "avg_values")
+
+################
+## plot 
+################
+
+## pH
+endmember_plot_pH <- modTable2_edit %>% 
+  filter(treatment_level=="Raw GW") %>% 
+  ggplot(aes(x=Location, 
+             y=meanpH, 
+             fill=Location)) + 
+  geom_col(position="dodge") + 
+#  facet_wrap(~avg_params, scales="free_y") + 
+  scale_fill_manual(values=c("goldenrod", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_classic() + 
+  geom_errorbar(aes(ymin = meanpH - sepH, 
+                    ymax = meanpH + sepH), 
+                width = 0.2, position = position_dodge(0.7)) + 
+  labs(x = "", 
+      y = "") + 
+ coord_cartesian(ylim = c(7, 8)) +
+ # scale_y_continuous(limits = c(7, 8)) +
+       # y = expression(Average~pH) + 
+  theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+
+endmember_plot_pH
+
+
+## NN
+endmember_plot_NN <- modTable2_edit %>% 
+  ggplot(aes(x=Location, 
+             y=meanNN, 
+             fill=Location)) + 
+  geom_col(position="dodge") + 
+#  facet_wrap(~avg_params, scales="free_y") + 
+  scale_fill_manual(values=c("goldenrod", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_classic() + 
+  geom_errorbar(aes(ymin = meanNN - seNN, 
+                    ymax = meanNN + seNN), 
+                width = 0.2, position = position_dodge(0.7)) + 
+     labs(x = "", 
+          y = "") + 
+       # y = expression(Average~Nitrate~Nitrite(mu*mol~L^-1))) + 
+  theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+
+endmember_plot_NN
+
+## silicate 
+
+endmember_plot_sil <- modTable2_edit %>% 
+  ggplot(aes(x=Location, 
+             y=meansilicate, 
+             fill=Location)) + 
+  geom_col(position="dodge") + 
+#  facet_wrap(~avg_params, scales="free_y") + 
+  scale_fill_manual(values=c("goldenrod", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_classic() + 
+  geom_errorbar(aes(ymin = meansilicate - sesilicate, 
+                    ymax = meansilicate + sesilicate), 
+                width = 0.2, position = position_dodge(0.7)) + 
+     labs(x = "", 
+          y = "") + 
+       # y = expression(Average~Silicate~(mu*mol~L^-1))) + 
+   theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+
+endmember_plot_sil
+
+## salinity 
+
+endmember_plot_sal <- modTable2_edit %>% 
+  ggplot(aes(x=Location, 
+             y=meansal, 
+             fill=Location)) + 
+  geom_col(position="dodge") + 
+#  facet_wrap(~avg_params, scales="free_y") + 
+  scale_fill_manual(values=c("goldenrod", "firebrick4"), 
+                    limits=c("Cabral", "Varari"),
+                     guide="none") + 
+  theme_classic() + 
+  geom_errorbar(aes(ymin = meansal - sesal, 
+                    ymax = meansal + sesal), 
+                width = 0.2, position = position_dodge(0.7)) + 
+     labs(x = "", 
+          y = "") + 
+        #y = expression(Average~Salinity~(psu))) + 
+   theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+
+endmember_plot_sal
+
+
+## phosphate 
+
+endmember_plot_phosphate <- modTable2_edit %>% 
+  ggplot(aes(x=Location, 
+             y=meanphos, 
+             fill=Location)) + 
+  geom_col(position="dodge") + 
+#  facet_wrap(~avg_params, scales="free_y") + 
+  scale_fill_manual(values=c("goldenrod", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_classic() + 
+  geom_errorbar(aes(ymin = meanphos - sephos, 
+                    ymax = meanphos + sephos), 
+                width = 0.2, position = position_dodge(0.7)) + 
+   labs(x = "", 
+        y = expression(Average~Phosphate~(mu*mol~L^-1))) + 
+   theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+
+endmember_plot_phosphate
+
+## TA 
+
+endmember_plot_TA <- modTable2_edit %>% 
+  ggplot(aes(x=Location, 
+             y=meanTA, 
+             fill=Location)) + 
+  geom_col(position="dodge") + 
+#  facet_wrap(~avg_params, scales="free_y") + 
+  scale_fill_manual(values=c("goldenrod", "firebrick4"), 
+                    limits=c("Cabral", "Varari"), 
+                    guide="none") + 
+  theme_classic() + 
+  geom_errorbar(aes(ymin = meanTA - seTA, 
+                    ymax = meanTA + seTA), 
+                width = 0.2, position = position_dodge(0.7)) + 
+    labs(x = "", 
+        y = expression(Average~TA~(mu*mol~L^-1))) + 
+   theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+
+endmember_plot_TA
+
+######################################
+## add them all together 
+######################################
+
+endmember_plots <-  endmember_plot_sil + endmember_plot_NN + endmember_plot_sal + endmember_plot_pH
+
+endmember_plots
+ggsave(here::here("Outputs", "Publication", "endmember_plots.jpg"), 
+       width=12, height=8)
+```
+
+
+## Supplemental Figure: 
+
+```{r}
+## tidy data in way that makes sense for plot 
+
+CoralGenera_Tiles_edit <- CoralGenera_Tiles %>% 
+  dplyr::select(!"Notes") %>% 
+  pivot_longer(cols="Pocilloporidae":"Other", names_to = "coral_genera" , values_to= "counts") %>% 
+  group_by(CowTagID, Location, coral_genera) %>%  
+  summarize(genera_total=sum(counts)) %>% 
+  ungroup() %>% 
+  group_by(CowTagID, Location) %>%  
+  mutate(sum_total=sum(genera_total)) %>% 
+  mutate(percentage = (genera_total/sum_total)*100) %>% 
+  filter(CowTagID!="C19") %>% 
+  ungroup() %>% 
+  group_by(coral_genera, Location) %>%
+  mutate(mean_percentage = mean(percentage),
+         se = sd(percentage) / sqrt(n()))  # Standard error calculation
+
+#######################################
+## for stacked bar plot - no averages 
+########################################
+
+## calculate total at Varari and at Cabral 
+      ## 433 at Cabral and 676 at Varari 
+
+CoralGenera_Tiles_editV <- CoralGenera_Tiles %>% 
+  dplyr::select(!"Notes") %>%
+  filter(Location=="Varari") %>% 
+  pivot_longer(cols="Pocilloporidae":"Other", names_to = "coral_genera" , values_to= "counts") %>% 
+  group_by(Location, coral_genera) %>% 
+  summarize(genera_total=sum(counts), 
+            percent = (genera_total/676)*100)
+
+CoralGenera_Tiles_editC <- CoralGenera_Tiles %>% 
+  dplyr::select(!"Notes") %>%
+  filter(Location=="Cabral") %>% 
+  pivot_longer(cols="Pocilloporidae":"Other", names_to = "coral_genera" , values_to= "counts") %>% 
+  group_by(Location, coral_genera) %>% 
+  summarize(genera_total=sum(counts), 
+            percent = (genera_total/433)*100)
+
+
+CoralGenera_Tiles_edit2 <- CoralGenera_Tiles_editC %>% 
+  bind_rows(CoralGenera_Tiles_editV)
+  
+########################################
+## plot percent total of the genera
+########################################
+
+coral_generaplot1 <- CoralGenera_Tiles_edit2 %>% 
+  mutate(grp = factor(coral_genera, levels = c("Other","Acroporidae","Poritidae","Pocilloporidae"))) %>% # put the levels in an order I want for plotting
+  ggplot(aes(x=Location, 
+             y=percent, 
+             fill=grp)) + 
+  geom_col() + 
+  #geom_errorbar(aes(ymin = mean_percentage - se, 
+                  #  ymax = mean_percentage + se), 
+               # width = 0.2, position = position_dodge(0.7)) +  # Add error bars
+  theme_classic() + 
+  scale_fill_manual(values=c("gray", "coral2", "chocolate4", "burlywood"), 
+                    limits=c("Other", "Acroporidae", "Poritidae", "Pocilloporidae")) +
+  labs(x = "Location", 
+       y= "Percentage of Total Settlers", 
+       fill= "Coral Family") + 
+  theme(axis.text.x=element_text(size=20), 
+        axis.text.y=element_text(size=20), 
+        axis.title.x=element_text(size=20), 
+        axis.title.y=element_text(size=20), 
+        legend.text=element_text(size=20),  # Adjust legend text size
+        legend.title=element_text(size=20), # Adjust legend title size
+        strip.text=element_text(size=20))
+  
+coral_generaplot1
+ggsave(here::here("Outputs", "Publication", "coral_genera_tiles.jpg"), 
+       width=10, height=7)
+```
 
 
 

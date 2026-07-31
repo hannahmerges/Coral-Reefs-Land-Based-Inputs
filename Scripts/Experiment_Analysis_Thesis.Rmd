@@ -22,8 +22,6 @@ library(lubridate)
 library(lme4)
 library(lmerTest)
 library(modelsummary)
-#library(tidymodels)
-#library(flextable)
 library(performance)
 library(agricolae)
 library(broom)
@@ -34,7 +32,6 @@ library(betareg)
 library(ggridges)
 library(ggplot2)
 library(viridis)
-#library(hrbrthemes)
 ```
 
 ## Load datasets 
@@ -45,7 +42,7 @@ SettlementCount_updated <- read_csv(here::here("Data", "SettlementCounts_edited.
 SettlementCount_updated <- SettlementCount_updated %>% 
   filter(settled!=0) #%>% ##dropped one outlier in data where there were 0 counts for everything, so I think no larvae were actually added
 
-### bring in settlement counts and water chem data to get salinity in addition to nutrients (found this file from script: )
+### bring in settlement counts and water chem data to get salinity in addition to nutrients 
 SettlementCount_wsalinity <- read_csv(here::here("Data", "SettlementCounts_edited_wSALINITY.csv"))
 
 SettlementCount_wsalinity <- SettlementCount_wsalinity %>% 
@@ -55,15 +52,12 @@ SettlementCount_wsalinity <- SettlementCount_wsalinity %>%
 
 ## March, 2026: Calculate the total number of replicates per treatment for each site/month 
 ```{r}
-
 treat_reps <- SettlementCount_updated %>% 
   dplyr::select(c("site", "treatment_level")) %>% 
   group_by(site, treatment_level) %>% 
   dplyr::summarize(count = dplyr::n(), .groups = "drop")
 
 ```
-
-
 
 ## Tidy the data 
 - adding in proportion of settlement calculations 
@@ -74,13 +68,9 @@ SettlementCount_updated <- SettlementCount_updated %>%
 
 SettlementCount_wsalinity <- SettlementCount_wsalinity %>% 
   dplyr::mutate(proportion_settled = settled/20)
-
-#SettlementCount_wsalinity_andpH <- SettlementCount_wsalinity %>% 
   
 SettlementCount_updated_Cabral <- SettlementCount_updated %>% 
-  filter(site=="Cabral") #%>% 
-  #summarize(meansettled = mean(settled), 
-       #  sesettled = sd(meansettled) / sqrt(n()))
+  filter(site=="Cabral") 
 
 max(SettlementCount_updated_Cabral$proportion_settled)
 min(SettlementCount_updated_Cabral$proportion_settled)
@@ -100,7 +90,7 @@ sd(SettlementCount_updated_Varari$settled) / sqrt(length(SettlementCount_updated
 ```
 
 
-## Models for Thesis
+## Models for manuscript
 -  Using silicate as the main predictor and using proportions as the response 
 -  **Results:**  Varari is significant, Cabral is not 
 
@@ -119,8 +109,7 @@ check_model(treatment_bin)
 ######################
 ## Varari 
 ######################
-
-## does it look okay just logging ? if not, use beta regression
+## does it look okay just logging? if not, use beta regression
 
 ## regular lmer 
 silicate_settlersV <- lmer(proportion_settled ~ silicate + (1|date), data = SettlementCount_updated %>% 
@@ -146,7 +135,7 @@ check_model(silicate_settlersC)
 
 ```
 
-## Basic plots 
+## Figure 3
 
 ```{r}
 ######################
@@ -237,7 +226,6 @@ ggsave(here::here("Outputs","SettlementExperiment", "Thesis_Figures", "C_settler
        width=10, height=7)
 
 
-
 C_settler_prop + V_proportion_settlers
 ggsave(here::here("Outputs","Publication", "settlement_exp_bothsites.jpg"), 
        width=14, height=7)
@@ -272,140 +260,6 @@ salinity_settlersV <- lmer(log(proportion_settled+1) ~ salinity + (1|date), data
 anova(salinity_settlersV)
 ```
 
-
-
-
-
-
-
-
-
-
-# Experimental Testing (can ignore)
-
-## Boxplot with jitter 
-
-```{r}
-boxplot_silic <- SettlementCount_updated %>%
-  ggplot(aes(x=silicate, 
-             y=settled, 
-             fill=site)) +
-  geom_boxplot() +
-  geom_jitter(aes(color=treatment_level)) +
-  facet_wrap(~site) + 
-  scale_fill_manual(values=c("lightgray", "lightgray")) + 
-  scale_color_manual(values=c("deepskyblue", "darkseagreen", "darkgoldenrod3", "coral3"), 
-                    limits=c("Ambient", "Low", "Medium", "High")) +
-  theme_classic()
-
-
-boxplot_silic
-
-```
-
-
-## Violin plot 
-
-```{r}
-
-##########################
-## basic violin plot - silicate x 
-##########################
-
-violin1_silic <- SettlementCount_updated %>%
-  ggplot(aes(x=silicate, 
-             y=settled, 
-             fill=site)) +
-  geom_violin(width=1.4) +
-  #geom_boxplot(width=0.1, color="grey", alpha=0.2) +
-#  geom_jitter(aes(color=treatment_level)) +
-  facet_wrap(~site) + 
- # scale_fill_manual(values=c("lightgray", "lightgray")) + 
- # scale_color_manual(values=c("deepskyblue", "darkseagreen", "darkgoldenrod3", "coral3"), 
-                   # limits=c("Ambient", "Low", "Medium", "High")) +
-  theme_classic()
-
-
-violin1_silic
-
-##########################
-## basic violin plot - treatment groups on x 
-##########################
-
-violin2_silic <- SettlementCount_updated %>%
-  ggplot(aes(x=treatment_level,
-             y=settled, 
-             fill=treatment_level)) +
-  geom_violin(width=1.4) +
-  #geom_boxplot(width=0.1, color="grey", alpha=0.2) +
-#  geom_jitter(aes(color=treatment_level)) +
-  facet_wrap(~site) + 
- # scale_fill_manual(values=c("lightgray", "lightgray")) + 
-  scale_fill_manual(values=c("deepskyblue", "darkseagreen", "darkgoldenrod3", "coral3"), 
-                    limits=c("Ambient", "Low", "Medium", "High")) +
-  scale_x_discrete(limits=c("Ambient", "Low", "Medium", "High")) +
-  theme_classic()
-
-violin2_silic
-
-
-##########################
-## violin plot with boxplot - treatment groups on x 
-##########################
-
-violin3_silic <- SettlementCount_updated %>%
-  ggplot(aes(x=treatment_level, 
-             y=settled, 
-             fill=treatment_level)) +
-  geom_violin(width=1.4) +
-  geom_boxplot(width=0.4, color="black", alpha=0.2) +
-  #geom_jitter(aes(color="black")) +
-  facet_wrap(~site) + 
- # scale_fill_manual(values=c("lightgray", "lightgray")) + 
-  scale_fill_manual(values=c("deepskyblue", "darkseagreen", "darkgoldenrod3", "coral3"), 
-                    limits=c("Ambient", "Low", "Medium", "High")) +
-  scale_x_discrete(limits=c("Ambient", "Low", "Medium", "High")) +
-  theme_classic() + 
-  labs(x="SGD Treatment", 
-       y= "Number of Settled Larvae")
-
-violin3_silic
-
-##########################
-## violin plot - silicate x and boxplot
-##########################
-
-violin4_silic <- SettlementCount_updated %>%
-  ggplot(aes(x=silicate, 
-             y=settled, 
-             fill=treatment_level)) +
-  geom_violin(width=1.4) +
- # geom_boxplot(width=0.4, color="black", alpha=0.2) +
-  #geom_jitter(aes(color="black")) +
-  facet_wrap(~site, scales="free_x") + 
- # scale_fill_manual(values=c("lightgray", "lightgray")) + 
-  scale_fill_manual(values=c("deepskyblue", "darkseagreen", "darkgoldenrod3", "coral3"), 
-                    limits=c("Ambient", "Low", "Medium", "High")) +
-  #scale_x_discrete(limits=c("Ambient", "Low", "Medium", "High")) +
-  theme_classic() + 
-  labs(x = expression(Silicate~(mu*mol~L^-1)), 
-       y= "Number of Settled Larvae", 
-       fill= "Treatment Level") + 
-  theme(axis.text.x=element_text(size=20), 
-        axis.text.y=element_text(size=20), 
-        axis.title.x=element_text(size=20), 
-        axis.title.y=element_text(size=20), 
-        legend.text=element_text(size=20),  # Adjust legend text size
-        legend.title=element_text(size=20), # Adjust legend title size
-        strip.text=element_text(size=20))   # Adjust facet label size
-#  geom_signif(comparisons = SettlementCount_updated$silicate,   
-           #   map_signif_level=TRUE)
-
-violin4_silic
-ggsave(here::here("Outputs","SettlementExperiment","Thesis_Figures","Exp_ViolinPlot.jpg"), 
-       width=11, height =7)
-
-```
 
 ## Models 
 
