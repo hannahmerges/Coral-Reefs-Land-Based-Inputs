@@ -45,7 +45,7 @@ SettlementCount_updated <- SettlementCount_updated %>%
 ### bring in settlement counts and water chem data to get salinity in addition to nutrients 
 SettlementCount_wsalinity <- read_csv(here::here("Data", "SettlementCounts_edited_wSALINITY.csv"))
 
-SettlementCount_wsalinity <- SettlementCount_wsalinity %>% 
+SettlementCount_wsalinity <- SettlementCount_wsalinity %>%
   filter(settled!=0)
 
 ```
